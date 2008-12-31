@@ -1,0 +1,130 @@
+
+' Constants values for Spike method calls
+const NEWCHANNEL%       := 0;      ' ChanNew
+const WAVEFORM%         := 1;      ' ChanNew
+const DEFAULTBUFFER%    := 0;      ' ChanNew
+const PRIMARYCOLOUR%    := 1;      ' ChanColour
+const BLACK%            := 1;      ' ChanColour
+const RED%              := 16;     ' ChanColour
+const SKYLINE%          := 16;     ' DrawMode
+const CUSTOMLABEL%      := 4;      ' HCursorLabel
+const MEAN%             := 2;      ' ChanMeasure
+const OK%               := 1;      ' DlgShow
+const MOVERESIZE%       := 0x0004; ' Toolbar
+const NOHCURSORCHANNEL% := 0x1000; ' Toolbar
+
+var emg%;
+var epoch;
+
+var epochCount%;
+var epochSize%;
+
+var power%;
+var score%;
+var cursor%;
+
+var level;
+
+proc CreatePowerChannel()
+power% := ChanNew(NEWCHANNEL%, WAVEFORM%, DEFAULTBUFFER%, epoch);
+ChanTitle$(power%, "EMG power");
+ChanColour(power%, PRIMARYCOLOUR%, RED%);
+ChanWeight(power%, ChanWeight(emg%) / 2.0);
+DrawMode(power%, SKYLINE%);
+end;
+
+proc CreatePowerCursor()
+cursor% := HCursorNew(power%);
+HCursorLabel(CUSTOMLABEL%, cursor%, "Score level %p");
+end;
+
+proc CreateScoreChannel()
+score% := ChanNew(NEWCHANNEL%, WAVEFORM%, DEFAULTBUFFER%, epoch);
+ChanTitle$(score%, "EMG score");
+ChanColour(score%, PRIMARYCOLOUR%, BLACK%);
+ChanWeight(score%, ChanWeight(emg%) / 5.0);
+DrawMode(score%, SKYLINE%);
+YRange(score%, -0.1, 1.1);
+end;
+
+proc UpdatePowerChannel()
+var data[epochCount%], emgPerEpoch[epochSize%], i%, n%;
+for i% := 0 to epochCount% - 1 do
+    n% := ChanData(emg%, emgPerEpoch, i% * epoch, MaxTime(emg%));
+    if (n% > 0) then
+        data[i%] := ArrDot(emgPerEpoch[:n%], emgPerEpoch[:n%]) * BinSize(emg%);
+    else
+        data[i%] := 0.0;
+    endif;
+next;
+ChanWriteWave(power%, data, 0.0);
+end;
+
+proc UpdateScoreChannel()
+var data[epochCount%], i%, n%;
+n% := ChanData(power%, data, 0.0, MaxTime(power%));
+level := HCursor(cursor%);
+for i% := 0 to epochCount% - 1 do
+    if i% < n% and data[i%] > level then
+        data[i%] := 1.0;
+    else
+        data[i%] := 0.0;
+    endif;
+next;
+ChanWriteWave(score%, data, 0.0);
+end;
+
+func RefreshScoreIfCursorChanged%()
+if level <> HCursor(cursor%) then
+    UpdateScoreChannel();
+endif;
+return 1;
+end;
+
+' Get the list of visible channels and select an "EMG" channel as the default
+var channels%[100];
+ChanList(channels%, 0x801);
+if channels%[0] > 0 then
+    emg% := channels%[1];
+    var i%;
+    for i% := 2 to channels%[0] do
+        if (InStr(ChanTitle$(channels%[i%]), "EMG") > 0) then
+            emg% := channels%[i%];
+        endif;
+    next;
+endif;
+
+' Default epoch is five seconds
+epoch := 5.0;
+
+DlgCreate("EMG Score Settings");
+DlgChan(1, "EMG Channel", channels%);
+DlgReal(2, "Epoch (s)", 0.1, 100000.0);
+if DlgShow(emg%, epoch) = OK% then
+    epochCount% := MaxTime(emg%) / epoch;  ' Total number of epochs
+    epochSize% := epoch / BinSize(emg%);   ' Number of data points per epoch
+    
+    CreatePowerChannel();
+    CreatePowerCursor();
+    CreateScoreChannel();
+
+    ' Calculate the power for each epoch (i.e. integrate EMG^2 over time)
+    UpdatePowerChannel();
+    
+    ' Set the power cursor it to the mean value as a starting point
+    HCursor(cursor%, ChanMeasure(power%, MEAN%, 0.0, MaxTime(power%)));
+    YRange(power%, 0.0, 2 * HCursor(cursor%));
+    
+    ' Create the score channel    
+    UpdateScoreChannel();
+    
+    ChanShow(power%);
+    ChanShow(score%);
+    
+    ToolbarSet(0, "Refresh", RefreshScoreIfCursorChanged%);
+    ToolbarSet(1, "Cancel");
+    ToolbarSet(2, "Report");
+    Toolbar("Set the score limit by moving the horizontal cursor", MOVERESIZE% + NOHCURSORCHANNEL%);
+endif;
+
+
