@@ -14,6 +14,11 @@
 ' limitations under the License.                                            '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+' Application constants
+const DEFAULTEPOCH      := 5.0;    ' Default epoch is five seconds
+const DEFAULTLEVELS%    := 1;      ' Default is just one score level
+const MAXSCORELEVELS%   := 5;
+
 ' Constants values for Spike method calls
 const NEWCHANNEL%       := 0;      ' ChanNew
 const WAVEFORM%         := 1;      ' ChanNew
@@ -39,8 +44,7 @@ var epochSize%;
 var power%;
 var score%;
 
-var cursorLow%, cursorHigh%;
-var levelLow, levelHigh;
+var scoreLevels%, level[MAXSCORELEVELS%], cursor%[MAXSCORELEVELS%];
 
 proc CreatePowerChannel()
 var data[epochCount%], emgPerEpoch[epochSize%], i%, n%;
@@ -58,14 +62,17 @@ for i% := 0 to epochCount% - 1 do
     endif;
 next;
 ChanWriteWave(power%, data, 0.0);
+YRange(power%, 0.0, ChanMeasure(power%, MEAN%, 0.0, MaxTime(power%)) * 2.0);
 ChanShow(power%);
 end;
 
 proc CreatePowerCursors()
-cursorLow% := HCursorNew(power%);
-HCursorLabel(CUSTOMLABEL%, cursorLow%, "Low active %p");
-cursorHigh% := HCursorNew(power%);
-HCursorLabel(CUSTOMLABEL%, cursorHigh%, "High active %p");
+var i%;
+for i% := 0 to scoreLevels% - 1 do
+    level[i%] := (i% + 1) * YHigh(power%) / (scoreLevels% + 1);
+    cursor%[i%] := HCursorNew(power%, level[i%]);
+    HCursorLabel(CUSTOMLABEL%, cursor%[i%], Print$("Score level %d: %%p", i% + 1));
+next;
 end;
 
 proc CreateScoreChannel()
@@ -79,25 +86,32 @@ ChanShow(score%);
 end;
 
 proc UpdateScoreChannel()
-var data[epochCount%], i%, n%;
+var data[epochCount%], i%, j%, n%, value;
 n% := ChanData(power%, data, 0.0, MaxTime(power%));
-levelLow := HCursor(cursorLow%);
-levelHigh := HCursor(cursorHigh%);
 for i% := 0 to epochCount% - 1 do
-    docase
-    case i% < n% and data[i%] > levelHigh then
-        data[i%] := 2.0;
-    case i% < n% and data[i%] > levelLow then
-        data[i%] := 1.0;
-    else
-        data[i%] := 0.0;
-    endcase;
+    value := 0.0;
+    if (i% < n%) then
+        for j% := 0 to scoreLevels% - 1 do
+            if data[i%] > level[j%] then
+                value := j% + 1;
+            endif;
+        next;
+    endif;
+    data[i%] := value;
 next;
 ChanWriteWave(score%, data, 0.0);
 end;
 
 func RefreshScoreIfCursorChanged%()
-if levelLow <> HCursor(cursorLow%) or levelHigh <> HCursor(cursorHigh%) then
+var refresh%, i%;
+refresh% := 0;
+for i% := 0 to scoreLevels% - 1 do
+    if level[i%] <> HCursor(cursor%[i%]) then
+        level[i%] := HCursor(cursor%[i%]);
+        refresh% := 1;
+    endif;
+next;
+if refresh% = 1 then
     UpdateScoreChannel();
 endif;
 return 1;
@@ -116,8 +130,11 @@ FileNew(TEXTFILE%);
 Print("EMG Score\n");
 Print("Epoch count\t%d\n", epochCount%);
 Print("Epoch length\t%f\n", epoch);
-Print("Low acitve\t%f\n", levelLow);
-Print("High active\t%f\n", levelHigh);
+Print("Score levels");
+for i% := 0 to scoreLevels% - 1 do
+    Print("\t%f", level[i%]);
+next;
+Print("\n");
 print("\n");
 print("Power\tScore\n");
 for i% := 0 to n% - 1 do
@@ -140,26 +157,20 @@ if channels%[0] > 0 then
     next;
 endif;
 
-' Default epoch is five seconds
-epoch := 5.0;
+epoch := DEFAULTEPOCH;
+scoreLevels% := DEFAULTLEVELS%;
 
 DlgCreate("EMG Score Settings");
 DlgChan(1, "EMG Channel", channels%);
 DlgReal(2, "Epoch (s)", 0.1, 100000.0);
-if DlgShow(emg%, epoch) = OK% then
+DlgInteger(3, "Score levels", 1, 2);
+if DlgShow(emg%, epoch, scoreLevels%) = OK% then
     epochCount% := MaxTime(emg%) / epoch;  ' Total number of epochs
     epochSize% := epoch / BinSize(emg%);   ' Number of data points per epoch
     
     CreatePowerChannel();
     CreatePowerCursors();
     CreateScoreChannel();
-    
-    ' Set the power cursors to approximate values
-    levelLow := ChanMeasure(power%, MEAN%, 0.0, MaxTime(power%)) / 2.0;
-    levelHigh := levelLow * 3.0;
-    HCursor(cursorLow%, levelLow);
-    HCursor(cursorHigh%, levelHigh);
-    YRange(power%, 0.0, levelLow * 4.0);
     
     ' Create the score channel    
     UpdateScoreChannel();
@@ -179,7 +190,8 @@ if DlgShow(emg%, epoch) = OK% then
     endcase;
     
     ChanDelete(score%);
-    HCursorDelete(cursorLow%);
-    HCursorDelete(cursorHigh%);
+    for i% := 0 to scoreLevels% - 1 do
+        HCursorDelete(cursor%[i%]);
+    next;
     ChanDelete(power%);
 endif;
