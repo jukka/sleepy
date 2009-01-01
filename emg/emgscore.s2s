@@ -26,7 +26,9 @@ const CUSTOMLABEL%      := 4;      ' HCursorLabel
 const MEAN%             := 2;      ' ChanMeasure
 const OK%               := 1;      ' DlgShow
 const MOVERESIZE%       := 0x0004; ' Toolbar
+const CANUSEVIEWMENU%   := 0x0020; ' Toolbar
 const NOHCURSORCHANNEL% := 0x1000; ' Toolbar
+const TEXTFILE%         := 1;      ' FileNew
 
 var emg%;
 var epoch;
@@ -36,34 +38,17 @@ var epochSize%;
 
 var power%;
 var score%;
-var cursor%;
 
-var level;
+var cursorLow%, cursorHigh%;
+var levelLow, levelHigh;
 
 proc CreatePowerChannel()
+var data[epochCount%], emgPerEpoch[epochSize%], i%, n%;
 power% := ChanNew(NEWCHANNEL%, WAVEFORM%, DEFAULTBUFFER%, epoch);
 ChanTitle$(power%, "EMG power");
 ChanColour(power%, PRIMARYCOLOUR%, RED%);
 ChanWeight(power%, ChanWeight(emg%) / 2.0);
 DrawMode(power%, SKYLINE%);
-end;
-
-proc CreatePowerCursor()
-cursor% := HCursorNew(power%);
-HCursorLabel(CUSTOMLABEL%, cursor%, "Score level %p");
-end;
-
-proc CreateScoreChannel()
-score% := ChanNew(NEWCHANNEL%, WAVEFORM%, DEFAULTBUFFER%, epoch);
-ChanTitle$(score%, "EMG score");
-ChanColour(score%, PRIMARYCOLOUR%, BLACK%);
-ChanWeight(score%, ChanWeight(emg%) / 5.0);
-DrawMode(score%, SKYLINE%);
-YRange(score%, -0.1, 1.1);
-end;
-
-proc UpdatePowerChannel()
-var data[epochCount%], emgPerEpoch[epochSize%], i%, n%;
 for i% := 0 to epochCount% - 1 do
     n% := ChanData(emg%, emgPerEpoch, i% * epoch, MaxTime(emg%));
     if (n% > 0) then
@@ -73,27 +58,73 @@ for i% := 0 to epochCount% - 1 do
     endif;
 next;
 ChanWriteWave(power%, data, 0.0);
+ChanShow(power%);
+end;
+
+proc CreatePowerCursors()
+cursorLow% := HCursorNew(power%);
+HCursorLabel(CUSTOMLABEL%, cursorLow%, "Low active %p");
+cursorHigh% := HCursorNew(power%);
+HCursorLabel(CUSTOMLABEL%, cursorHigh%, "High active %p");
+end;
+
+proc CreateScoreChannel()
+score% := ChanNew(NEWCHANNEL%, WAVEFORM%, DEFAULTBUFFER%, epoch);
+ChanTitle$(score%, "EMG score");
+ChanColour(score%, PRIMARYCOLOUR%, BLACK%);
+ChanWeight(score%, ChanWeight(emg%) / 5.0);
+DrawMode(score%, SKYLINE%);
+YRange(score%, 0.0, 2.0);
+ChanShow(score%);
 end;
 
 proc UpdateScoreChannel()
 var data[epochCount%], i%, n%;
 n% := ChanData(power%, data, 0.0, MaxTime(power%));
-level := HCursor(cursor%);
+levelLow := HCursor(cursorLow%);
+levelHigh := HCursor(cursorHigh%);
 for i% := 0 to epochCount% - 1 do
-    if i% < n% and data[i%] > level then
+    docase
+    case i% < n% and data[i%] > levelHigh then
+        data[i%] := 2.0;
+    case i% < n% and data[i%] > levelLow then
         data[i%] := 1.0;
     else
         data[i%] := 0.0;
-    endif;
+    endcase;
 next;
 ChanWriteWave(score%, data, 0.0);
 end;
 
 func RefreshScoreIfCursorChanged%()
-if level <> HCursor(cursor%) then
+if levelLow <> HCursor(cursorLow%) or levelHigh <> HCursor(cursorHigh%) then
     UpdateScoreChannel();
 endif;
 return 1;
+end;
+
+proc PrintScoreReport()
+var powerData[epochCount%], scoreData[epochCount%], i%, n%, file$;
+file$ := FileName$();
+if Right$(file$, 4) = ".smr" then
+    file$ := Left$(file$, Len(file$) - 4);
+endif;
+file$ := Print$("%s-emgscore.txt", file$);
+n% := ChanData(power%, powerData, 0.0, MaxTime(power%));
+n% := ChanData(score%, scoreData, 0.0, MaxTime(score%));
+FileNew(TEXTFILE%);
+Print("EMG Score\n");
+Print("Epoch count\t%d\n", epochCount%);
+Print("Epoch length\t%f\n", epoch);
+Print("Low acitve\t%f\n", levelLow);
+Print("High active\t%f\n", levelHigh);
+print("\n");
+print("Power\tScore\n");
+for i% := 0 to n% - 1 do
+    Print("%f\t%1.1f\n", powerData[i%], scoreData[i%]);
+next;
+FileSaveAs(file$);
+FileClose();
 end;
 
 ' Get the list of visible channels and select an "EMG" channel as the default
@@ -120,24 +151,35 @@ if DlgShow(emg%, epoch) = OK% then
     epochSize% := epoch / BinSize(emg%);   ' Number of data points per epoch
     
     CreatePowerChannel();
-    CreatePowerCursor();
+    CreatePowerCursors();
     CreateScoreChannel();
-
-    ' Calculate the power for each epoch (i.e. integrate EMG^2 over time)
-    UpdatePowerChannel();
     
-    ' Set the power cursor it to the mean value as a starting point
-    HCursor(cursor%, ChanMeasure(power%, MEAN%, 0.0, MaxTime(power%)));
-    YRange(power%, 0.0, 2 * HCursor(cursor%));
+    ' Set the power cursors to approximate values
+    levelLow := ChanMeasure(power%, MEAN%, 0.0, MaxTime(power%)) / 2.0;
+    levelHigh := levelLow * 3.0;
+    HCursor(cursorLow%, levelLow);
+    HCursor(cursorHigh%, levelHigh);
+    YRange(power%, 0.0, levelLow * 4.0);
     
     ' Create the score channel    
     UpdateScoreChannel();
     
-    ChanShow(power%);
-    ChanShow(score%);
-    
+    var button%;
     ToolbarSet(0, "Refresh", RefreshScoreIfCursorChanged%);
     ToolbarSet(1, "Cancel");
     ToolbarSet(2, "Report");
-    Toolbar("Set the score limit by moving the horizontal cursor", MOVERESIZE% + NOHCURSORCHANNEL%);
+    button% := Toolbar(
+        "Set the score limits by moving the horizontal cursors",
+        MOVERESIZE% + CANUSEVIEWMENU% + NOHCURSORCHANNEL%);
+    docase
+    case button% = 1 then
+        Message("Cancel");
+    case button% = 2 then
+        PrintScoreReport();
+    endcase;
+    
+    ChanDelete(score%);
+    HCursorDelete(cursorLow%);
+    HCursorDelete(cursorHigh%);
+    ChanDelete(power%);
 endif;
