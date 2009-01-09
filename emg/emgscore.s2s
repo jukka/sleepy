@@ -37,6 +37,7 @@ const TEXTFILE%         := 1;      ' FileNew
 
 var emg%;
 var epoch;
+var start;
 
 var epochCount%;
 var epochSize%;
@@ -54,14 +55,14 @@ ChanColour(power%, PRIMARYCOLOUR%, RED%);
 ChanWeight(power%, ChanWeight(emg%) / 2.0);
 DrawMode(power%, SKYLINE%);
 for i% := 0 to epochCount% - 1 do
-    n% := ChanData(emg%, emgPerEpoch, i% * epoch, MaxTime(emg%));
+    n% := ChanData(emg%, emgPerEpoch, start + i% * epoch, MaxTime(emg%));
     if (n% > 0) then
         data[i%] := ArrDot(emgPerEpoch[:n%], emgPerEpoch[:n%]) * BinSize(emg%);
     else
         data[i%] := 0.0;
     endif;
 next;
-ChanWriteWave(power%, data, 0.0);
+ChanWriteWave(power%, data, start);
 YRange(power%, 0.0, ChanMeasure(power%, MEAN%, 0.0, MaxTime(power%)) * 2.0);
 ChanShow(power%);
 end;
@@ -87,7 +88,7 @@ end;
 
 proc UpdateScoreChannel()
 var data[epochCount%], i%, j%, n%, value;
-n% := ChanData(power%, data, 0.0, MaxTime(power%));
+n% := ChanData(power%, data, start, MaxTime(power%));
 for i% := 0 to epochCount% - 1 do
     value := 0.0;
     if (i% < n%) then
@@ -99,7 +100,7 @@ for i% := 0 to epochCount% - 1 do
     endif;
     data[i%] := value;
 next;
-ChanWriteWave(score%, data, 0.0);
+ChanWriteWave(score%, data, start);
 end;
 
 func RefreshScoreIfCursorChanged%()
@@ -136,13 +137,16 @@ for i% := 0 to scoreLevels% - 1 do
 next;
 Print("\n");
 print("\n");
-print("Power\tScore\n");
+print("Time\tPower\tScore\n");
 for i% := 0 to n% - 1 do
-    Print("%f\t%1.1f\n", powerData[i%], scoreData[i%]);
+    Print("%d\t%f\t%1.0f\n", i% * epoch, powerData[i%], scoreData[i%]);
 next;
 FileSaveAs(file$);
 FileClose();
 end;
+
+' Find the time view window
+
 
 ' Get the list of visible channels and select an "EMG" channel as the default
 var channels%[100];
@@ -163,10 +167,11 @@ scoreLevels% := DEFAULTLEVELS%;
 DlgCreate("EMG Score Settings");
 DlgChan(1, "EMG Channel", channels%);
 DlgReal(2, "Epoch (s)", 0.1, 100000.0);
-DlgInteger(3, "Score levels", 1, 2);
-if DlgShow(emg%, epoch, scoreLevels%) = OK% then
-    epochCount% := MaxTime(emg%) / epoch;  ' Total number of epochs
-    epochSize% := epoch / BinSize(emg%);   ' Number of data points per epoch
+DlgReal(3, "Start time (s)", 0.0, MaxTime(emg%));
+DlgInteger(4, "Score levels (1-2)", 1, 2);
+if DlgShow(emg%, epoch, start, scoreLevels%) = OK% then
+    epochCount% := (MaxTime(emg%) - start) / epoch;  ' Total number of epochs
+    epochSize% := epoch / BinSize(emg%);             ' Number of data points per epoch
     
     CreatePowerChannel();
     CreatePowerCursors();
@@ -174,6 +179,9 @@ if DlgShow(emg%, epoch, scoreLevels%) = OK% then
     
     ' Create the score channel    
     UpdateScoreChannel();
+    
+    ' Start at the given point on the X axis
+    XRange(start);   
     
     var button%;
     ToolbarSet(0, "Refresh", RefreshScoreIfCursorChanged%);
@@ -184,7 +192,7 @@ if DlgShow(emg%, epoch, scoreLevels%) = OK% then
         MOVERESIZE% + CANUSEVIEWMENU% + NOHCURSORCHANNEL%);
     docase
     case button% = 1 then
-        Message("Cancel");
+        Message("EMG score cancelled.");
     case button% = 2 then
         PrintScoreReport();
     endcase;
