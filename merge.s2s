@@ -1,0 +1,292 @@
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Copyright 2010 Jukka Zitting <jukka.zitting@gmail.com>                    '
+'                                                                           '
+' Licensed under the Apache License, Version 2.0 (the "License");           '
+' you may not use this file except in compliance with the License.          '
+' You may obtain a copy of the License at                                   '
+'                                                                           '
+'     http://www.apache.org/licenses/LICENSE-2.0                            '
+'                                                                           '
+' Unless required by applicable law or agreed to in writing, software       '
+' distributed under the License is distributed on an "AS IS" BASIS,         '
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  '
+' See the License for the specific language governing permissions and       '
+' limitations under the License.                                            '
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' This script takes the listed Spike data files, selects specified channels '
+' (one EEG and one EMG channel per mouse) and concatenates the channel data '
+' from multiple files into a single file per day and mouse.                 '
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var dir$, file$[100];
+
+dir$ := "G:\\USF1 EEG (all combined)\\eeg 081209-111209\\";
+file$[0] := "081209_000.smr";
+file$[1] := "081209_001.smr";
+file$[2] := "091209_002.smr";
+file$[3] := "091209_003.smr";
+file$[4] := "091209_004.smr";
+file$[5] := "091209_005.smr";
+file$[6] := "091209_006.smr";
+file$[7] := "101209_007.smr";
+file$[8] := "101209_008.smr";
+file$[9] := "101209_009.smr";
+file$[10] := "101209_010.smr";
+file$[11] := "111209_011.smr";
+
+'CombineAndSplit("091209", file$[3:5]);
+'CombineAndSplit("101209", file$[7:5]);
+
+dir$ := "G:\\USF1 EEG (all combined)\\eeg 111209-221209\\";
+file$[0] := "111209_000.smr";
+file$[1] := "111209_001.smr";
+file$[2] := "111209_002.smr";
+file$[3] := "121209_003.smr";
+file$[4] := "121209_004.smr";
+file$[5] := "121209_005.smr";
+file$[6] := "121209_006.smr";
+file$[7] := "131209_007.smr";
+file$[8] := "131209_008.smr";
+file$[9] := "131209_009.smr";
+file$[10] := "131209_010.smr";
+file$[11] := "141209_011.smr";
+file$[12] := "141209_012.smr";
+file$[13] := "141209_013.smr";
+file$[14] := "141209_014.smr";
+file$[15] := "151209_015.smr";
+file$[16] := "151209_016.smr";
+file$[17] := "151209_017.smr";
+file$[18] := "151209_018.smr";
+file$[19] := "161209_019.smr";
+file$[20] := "161209_020.smr";
+file$[21] := "161209_021.smr";
+file$[22] := "161209_022.smr";
+file$[23] := "171209_023.smr";
+file$[24] := "171209_024.smr";
+file$[25] := "171209_025.smr";
+file$[26] := "171209_026.smr";
+file$[27] := "171209_027.smr";
+file$[28] := "181209_028.smr";
+file$[29] := "181209_029.smr";
+file$[30] := "181209_030.smr";
+file$[31] := "181209_031.smr";
+file$[32] := "191209_032.smr";
+file$[33] := "191209_033.smr";
+file$[34] := "191209_034.smr";
+file$[35] := "191209_035.smr";
+file$[36] := "201209_036.smr";
+file$[37] := "201209_037.smr";
+file$[38] := "201209_038.smr";
+file$[39] := "201209_039.smr";
+file$[40] := "211209_040.smr";
+file$[41] := "211209_041.smr";
+file$[42] := "211209_042.smr";
+file$[43] := "211209_043.smr";
+file$[44] := "221209_044.smr";
+
+'CombineAndSplit("111209", file$[0:5]);
+'CombineAndSplit("121209", file$[4:5]);
+'CombineAndSplit("131209", file$[8:5]);
+'CombineAndSplit("141209", file$[12:5]);
+'CombineAndSplit("151209", file$[16:5]);
+'CombineAndSplit("161209", file$[20:5]);
+'CombineAndSplit("171209", file$[24:5]);
+'CombineAndSplit("181209", file$[28:5]);
+'CombineAndSplit("191209", file$[32:5]);
+'CombineAndSplit("201209", file$[36:5]);
+'CombineAndSplit("211209", file$[40:5]);
+
+dir$ := "G:\\USF1 EEG (all combined)\\eeg 291209-120110\\";
+file$[0] := "291209_000.smr";
+file$[1] := "291209_001.smr";
+file$[2] := "301209_002.smr";
+file$[3] := "301209_003.smr";
+file$[4] := "301209_004.smr";
+file$[5] := "301209_005.smr";
+file$[6] := "311209_006.smr";
+file$[7] := "311209_007.smr";
+file$[8] := "311209_008.smr";
+file$[9] := "311209_009.smr";
+file$[10] := "010110_010.smr";
+file$[11] := "010110_011.smr";
+file$[12] := "010110_012.smr";
+file$[13] := "010110_013.smr";
+file$[14] := "020110_014.smr";
+file$[15] := "020110_015.smr";
+file$[16] := "020110_016.smr";
+file$[17] := "020110_017.smr";
+file$[18] := "030110_018.smr";
+file$[19] := "030110_019.smr";
+file$[20] := "030110_020.smr";
+file$[21] := "030110_021.smr";
+file$[22] := "040110_022.smr";
+file$[23] := "040110_023.smr";
+file$[24] := "040110_024.smr";
+file$[25] := "040110_025.smr";
+file$[26] := "040110_026.smr";
+file$[27] := "050110_027.smr";
+file$[28] := "050110_028.smr";
+file$[29] := "050110_029.smr";
+file$[30] := "050110_030.smr";
+file$[31] := "060110_031.smr";
+file$[32] := "060110_032.smr";
+file$[33] := "060110_033.smr";
+file$[34] := "060110_034.smr";
+file$[35] := "070110_035.smr";
+file$[36] := "070110_036.smr";
+file$[37] := "070110_037.smr";
+file$[38] := "070110_038.smr";
+file$[39] := "080110_039.smr";
+file$[40] := "080110_040.smr";
+file$[41] := "080110_041.smr";
+file$[42] := "080110_042.smr";
+file$[43] := "090110_043.smr";
+file$[44] := "090110_044.smr";
+file$[45] := "090110_045.smr";
+file$[46] := "090110_046.smr";
+file$[47] := "100110_047.smr";
+file$[48] := "100110_048.smr";
+file$[49] := "100110_049.smr";
+file$[50] := "100110_050.smr";
+file$[51] := "110110_051.smr";
+file$[52] := "110110_052.smr";
+file$[53] := "110110_053.smr";
+file$[54] := "110110_054.smr";
+file$[55] := "120110_055.smr";
+
+'CombineAndSplit("301209", file$[3:5]);
+'CombineAndSplit("311209", file$[7:5]);
+'CombineAndSplit("010110", file$[11:5]);
+'CombineAndSplit("020110", file$[15:5]);
+'CombineAndSplit("030110", file$[19:5]);
+'CombineAndSplit("040110", file$[23:5]);
+'CombineAndSplit("050110", file$[27:5]);
+'CombineAndSplit("060110", file$[31:5]);
+'CombineAndSplit("070110", file$[35:5]);
+'CombineAndSplit("080110", file$[39:5]);
+'CombineAndSplit("090110", file$[43:5]);
+'CombineAndSplit("100110", file$[47:5]);
+'CombineAndSplit("110110", file$[51:5]);
+
+dir$ := "G:\\USF1 EEG (all combined)\\eeg 250110-030210\\";
+file$[0] := "100125_000.smr";
+file$[1] := "100125_001.smr";
+file$[2] := "100126_002.smr";
+file$[3] := "100126_003.smr";
+file$[4] := "100126_004.smr";
+file$[5] := "100126_005.smr";
+file$[6] := "100127_006.smr";
+file$[7] := "100127_007.smr";
+file$[8] := "100127_008.smr";
+file$[9] := "100127_009.smr";
+file$[10] := "100128_010.smr";
+file$[11] := "100128_011.smr";
+file$[12] := "100128_012.smr";
+file$[13] := "100128_013.smr";
+file$[14] := "100129_014.smr";
+file$[15] := "100129_015.smr";
+file$[16] := "100129_016.smr";
+file$[17] := "100129_017.smr";
+file$[18] := "100130_018.smr";
+file$[19] := "100130_019.smr";
+file$[20] := "100130_020.smr";
+file$[21] := "100130_021.smr";
+file$[22] := "100131_022.smr";
+file$[23] := "100131_023.smr";
+file$[24] := "100131_024.smr";
+file$[25] := "100131_025.smr";
+file$[26] := "100201_026.smr";
+file$[27] := "100201_027.smr";
+file$[28] := "100201_028.smr";
+file$[29] := "100201_029.smr";
+file$[30] := "100201_030.smr";
+file$[31] := "100202_031.smr";
+file$[32] := "100202_032.smr";
+file$[33] := "100202_033.smr";
+file$[34] := "100202_034.smr";
+file$[35] := "100203_035.smr";
+file$[36] := "100203_036.smr";
+
+CombineAndSplit("100126", file$[3:5]);
+CombineAndSplit("100127", file$[7:5]);
+CombineAndSplit("100128", file$[11:5]);
+CombineAndSplit("100129", file$[15:5]);
+CombineAndSplit("100130", file$[19:5]);
+CombineAndSplit("100131", file$[23:5]);
+CombineAndSplit("100201", file$[27:5]);
+CombineAndSplit("100202", file$[31:5]);
+
+proc CombineAndSplit(date$, part$[])
+    CombineForMouse(date$, 3, 14, 10, part$[]);
+    CombineForMouse(date$, 5, 16, 9, part$[]);
+    CombineForMouse(date$, 7, 12, 11, part$[]);
+    CombineForMouse(date$, 8, 7, 5, part$[]);
+    CombineForMouse(date$, 10, 8, 6, part$[]);
+    CombineForMouse(date$, 11, 1, 3, part$[]);
+end
+
+proc CombineForMouse(date$, mouse%, eeg%, emg%, part$[])
+PrintLog("Processing date %s for mouse %d\n", date$, mouse%);
+var i%, n%;
+n% := Len(part$[]);
+var f%[n%];
+var bs, sz := 0.0;
+for i% := 0 to n% - 1 do
+    f%[i%] := FileOpen(dir$ + part$[i%], 0);
+    View(f%[i%]);
+    sz += MaxTime(eeg%);
+    bs := BinSize(eeg%);
+next
+var target%;
+target% := FileNew(7, 1, bs * 1000 * 1000, 1, sz, 32);
+CombineChannels(f%[], eeg%, target%, "EEG");
+CombineChannels(f%[], emg%, target%, "EMG");
+'for i% := 0 to n% - 1 do
+'    View(f%[i%]);
+'    FileClose();
+'next
+View(target%);
+ExportChanList(0.0, sz, 1, 2);
+FileSaveAs(dir$ + date$ + " mouse " + Str$(mouse%) + ".smr", 0, 1);
+'FileClose();
+end
+
+proc CombineChannels(source%[], ch%, target%, name$)
+View(source%[0]);
+var scale, offset, units$, sz, bs;
+scale := ChanScale(ch%);
+offset := ChanOffset(ch%);
+units$ := ChanUnits$(ch%);
+sz := MaxTime(ch%);
+bs := BinSize(ch%);
+
+View(target%);
+var new%;
+new% := ChanNew(0, 1, 0, bs);
+ChanScale(new%, scale);
+ChanOffset(new%, offset);
+ChanUnits$(new%, units$);
+ChanTitle$(new%, name$);
+
+var time, buffer[10000], i%, n%;
+offset := 0.0;
+for i% := 0 to Len(source%[]) - 1 do
+    time := 0.0;
+    repeat
+        View(source%[i%]);
+        n% := ChanData(ch%, buffer[], time, sz, time);
+        if n% > 0 then
+            View(target%);
+            n% := ChanWriteWave(new%, buffer[:n%], offset + time);
+            if n% > 0 then
+                time += n% * bs;
+            endif;
+        endif;
+    until n% <= 0;
+    offset += time;
+next
+
+ChanShow(new%);
+end
