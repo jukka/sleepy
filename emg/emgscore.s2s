@@ -1,5 +1,5 @@
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Copyright 2008 Jukka Zitting <jukka.zitting@gmail.com>                    '
+' Copyright 2008,2011 Jukka Zitting <jukka.zitting@gmail.com>               '
 '                                                                           '
 ' Licensed under the Apache License, Version 2.0 (the "License");           '
 ' you may not use this file except in compliance with the License.          '
@@ -22,6 +22,7 @@ const MAXSCORELEVELS%   := 5;
 ' Constants values for Spike method calls
 const NEWCHANNEL%       := 0;      ' ChanNew
 const WAVEFORM%         := 1;      ' ChanNew
+const TEXTMARK%         := 8;      ' ChanNew
 const DEFAULTBUFFER%    := 0;      ' ChanNew
 const PRIMARYCOLOUR%    := 1;      ' ChanColour
 const BLACK%            := 1;      ' ChanColour
@@ -145,8 +146,45 @@ FileSaveAs(file$);
 FileClose();
 end;
 
-' Find the time view window
+proc CreateEpochsChannel()
+var scoreData[epochCount%], i%, n%;
+n% := ChanData(score%, scoreData, 0.0, MaxTime(score%));
 
+var ch%;
+ch% := MemChan(TEXTMARK%, 40);
+ChanTitle$(ch%, "Epochs");
+ChanComment$(ch%, "Inactive|Active|");
+
+var comment$[9], code%[4];
+comment$[0] := "Inactive";
+comment$[1] := "Active";
+comment$[2] := "2";
+comment$[3] := "3";
+comment$[4] := "4";
+comment$[5] := "5";
+comment$[6] := "6";
+comment$[7] := "7";
+comment$[8] := "no stage";
+for i% := 0 to n% - 1 do
+    code%[0] := Round(scoreData[i%]);
+    Message("%d %f", code%[0], scoreData[i%]);
+    MemSetItem(ch%, 0, i% * epoch, code%[], comment$[code%[0]]);
+next;
+code%[0] := 8;
+MemSetItem(ch%, 0, epochCount% * epoch, code%[], comment$[code%[0]]);
+
+const STATEMODE% := 15;
+const SHOWTEXT%  := 2;
+var epochsChannel%;
+epochsChannel% := ChanNew(0, TEXTMARK%, 40);
+MemSave(ch%, epochsChannel%, TEXTMARK%, 1);
+ChanDelete(ch%);
+DrawMode(epochsChannel%, STATEMODE%, SHOWTEXT%);
+ChanShow(epochsChannel%);
+end;
+
+
+' Find the time view window
 
 ' Get the list of visible channels and select an "EMG" channel as the default
 var channels%[100];
@@ -186,7 +224,8 @@ if DlgShow(emg%, epoch, start, scoreLevels%) = OK% then
     var button%;
     ToolbarSet(0, "Refresh", RefreshScoreIfCursorChanged%);
     ToolbarSet(1, "Cancel");
-    ToolbarSet(2, "Report");
+    ToolbarSet(2, "Report to file");
+    ToolbarSet(3, "Report to channel");
     button% := Toolbar(
         "Set the score limits by moving the horizontal cursors",
         MOVERESIZE% + CANUSEVIEWMENU% + NOHCURSORCHANNEL%);
@@ -195,6 +234,8 @@ if DlgShow(emg%, epoch, start, scoreLevels%) = OK% then
         Message("EMG score cancelled.");
     case button% = 2 then
         PrintScoreReport();
+    case button% = 3 then
+        CreateEpochsChannel();
     endcase;
     
     ChanDelete(score%);
