@@ -167,7 +167,6 @@ comment$[7] := "7";
 comment$[8] := "no stage";
 for i% := 0 to n% - 1 do
     code%[0] := Round(scoreData[i%]);
-    Message("%d %f", code%[0], scoreData[i%]);
     MemSetItem(ch%, 0, i% * epoch, code%[], comment$[code%[0]]);
 next;
 code%[0] := 8;
