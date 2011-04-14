@@ -1,0 +1,62 @@
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Copyright 2011 Jukka Zitting <jukka.zitting@gmail.com>                    '
+'                                                                           '
+' Licensed under the Apache License, Version 2.0 (the "License");           '
+' you may not use this file except in compliance with the License.          '
+' You may obtain a copy of the License at                                   '
+'                                                                           '
+'     http://www.apache.org/licenses/LICENSE-2.0                            '
+'                                                                           '
+' Unless required by applicable law or agreed to in writing, software       '
+' distributed under the License is distributed on an "AS IS" BASIS,         '
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  '
+' See the License for the specific language governing permissions and       '
+' limitations under the License.                                            '
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' This script takes a score channel, finds all epochs marked as artefacts,
+' and creates a new channel that just classifies all the epochs as being
+' either artefacts or not.
+
+' Constants values for Spike method calls
+const NEWCHANNEL%       := 0;      ' ChanNew
+const TEXTMARK%         := 8;      ' ChanNew
+const OK%               := 1;      ' DlgShow
+const STATEMODE%        := 15;     ' DrawMode
+const SHOWTEXT%         := 2;      ' DrawMode
+
+var zero%[4], one%[4];
+ArrConst(zero%[], 0);
+ArrConst(one%[], 0);
+one%[0] := 1;
+
+var epochsChannel%, arte%;
+epochsChannel% := 0;
+arte% := 3;
+DlgCreate("ARTE finder");
+DlgChan(1, "Epochs ch", 32);
+DlgInteger(2, "ARTE no", 0, 8);
+if DlgShow(epochsChannel%, arte%) = OK% then
+    var memChannel%;
+    memChannel% := MemChan(TEXTMARK%, 40);
+    ChanTitle$(memChannel%, "ARTE");
+    ChanComment$(memChannel%, "Not ARTE|ARTE|");
+
+    var time, code%[4];
+    time := NextTime(epochsChannel%, -1, code%[]);
+    while time <> -1 do
+        if code%[0] = arte% then
+            MemSetItem(memChannel%, 0, time, one%[], "ARTE");
+        else
+            MemSetItem(memChannel%, 0, time, zero%[], "Not ARTE");
+        endif;
+        time := NextTime(epochsChannel%, time, code%[]);
+    wend;
+
+    var resultChannel%;
+    resultChannel% := ChanNew(0, TEXTMARK%, 40);
+    MemSave(memChannel%, resultChannel%, TEXTMARK%, 1);
+    ChanDelete(memChannel%);
+    DrawMode(resultChannel%, STATEMODE%, SHOWTEXT%);
+    ChanShow(resultChannel%);
+endif;
