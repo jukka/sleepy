@@ -1,0 +1,124 @@
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Copyright 2011 Jukka Zitting <jukka.zitting@gmail.com>                    '
+'                                                                           '
+' Licensed under the Apache License, Version 2.0 (the "License");           '
+' you may not use this file except in compliance with the License.          '
+' You may obtain a copy of the License at                                   '
+'                                                                           '
+'     http://www.apache.org/licenses/LICENSE-2.0                            '
+'                                                                           '
+' Unless required by applicable law or agreed to in writing, software       '
+' distributed under the License is distributed on an "AS IS" BASIS,         '
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  '
+' See the License for the specific language governing permissions and       '
+' limitations under the License.                                            '
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' This script takes a (low-pass filtered) breath wave channel and a related '
+' peak event channel, divides the data into epochs of a given length, and   '
+' classifies the epochs in to regular and irregular based on the amplitude  '
+' range and mean distance of peaks within the epoch. The amplitude range is '
+' compared to two manually set horizontal cursors (max and min of regular   '
+' data). The mean peak distance of a regular epoch should be no more than   '
+' two standard deviations away from the mean across the whole data.         '
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' Modify this value to set the stdev factor by which the mean peak distance within an epoch
+' may at most differ from a known regular peak distance value.
+const STDEVFACTOR := 1.0;
+
+var waveChannel%, eventChannel%, epochLength;
+waveChannel% := 0;
+eventChannel% := 0;
+epochLength := 1.0;
+DlgCreate("breathscore");
+DlgChan(1, "Wave channel", 1 + 2048);
+DlgChan(2, "Event channel", 2 + 2048);
+DlgReal(3, "Epoch length", 0.1, 10000.0);
+DlgShow(waveChannel%, eventChannel%, epochLength);
+breathscore(waveChannel%, eventChannel%, epochLength);
+
+proc breathscore(waveChannel%, eventChannel%, epochLength)
+var epochCount%;
+epochCount% := Floor(MaxTime(eventChannel%) / epochLength);
+
+var n%;
+n% := Count(eventChannel%, 0.0, MaxTime(eventChannel%));
+var i%, intervals[n% - 1];
+position1 := NextTime(eventChannel%, 0.0);
+for i% := 0 to n% - 2 do
+    position2 := NextTime(eventChannel%, position1);
+    intervals[i%] := position2 - position1; 
+    position1 := position2;
+next;
+
+var mean, stdev;
+ArrSum(intervals[], mean, stdev);
+
+var level1, level2;
+level1 := HCursor(1);
+level2 := HCursor(2);
+if level1 > level2 then
+    level2 := level1;
+    level1 := HCursor(2);
+endif;
+
+var ch%;
+const TEXTMARK%  := 8;
+ch% := MemChan(TEXTMARK%, 40);
+ChanTitle$(ch%, "Breathscore");
+ChanComment$(ch%, "Regular|Irregular|");
+
+var position1, position2;
+var comment$[2], code%[4], epochMean;
+comment$[0] := "Regular";
+comment$[1] := "Irregular";
+for i% := 0 to epochCount% - 1 do
+    position1 := i% * epochLength;
+    position2 := (i% + 1) * epochLength;
+    if ChanMeasure(waveChannel%, 9, position1, position2) < level1 or ChanMeasure(waveChannel%, 8, position1, position2) > level2 then
+        code%[0] := 1;
+    else
+        epochMean := meanEventDistance(eventChannel%, position1, position2, epochLength);
+        if Abs(epochMean - mean) < STDEVFACTOR*stdev then
+            code%[0] := 0;
+        else
+            code%[0] := 1;
+        endif;
+    endif;
+    MemSetItem(ch%, 0, position1, code%[], comment$[code%[0]]);
+next;
+code%[0] := 8;
+MemSetItem(ch%, 0, position2, code%[], "no stage");
+
+var breathscoreChannel%;
+const STATEMODE% := 15;
+const SHOWTEXT%  := 2;
+breathscoreChannel% := ChanNew(0, TEXTMARK%, 40);
+MemSave(ch%, breathscoreChannel%, TEXTMARK%, 1);
+ChanDelete(ch%);
+DrawMode(breathscoreChannel%, STATEMODE%, SHOWTEXT%);
+ChanShow(breathscoreChannel%);
+end;
+
+func meanEventDistance(eventChannel%, position1, position2, defaultMean)
+var n%;
+n% := Count(eventChannel%, position1, position2);
+
+if n% > 1 then
+    var i%, distance[n% - 1];
+    position1 := NextTime(eventChannel%, position1);
+    for i% := 0 to n% - 2 do
+        position2 := NextTime(eventChannel%, position1);
+        distance[i%] := position2 - position1; 
+        position1 := position2;
+    next;
+
+    var mean;
+    ArrSum(distance[], mean);
+    return mean;
+else
+    return defaultMean;
+endif;
+end;
